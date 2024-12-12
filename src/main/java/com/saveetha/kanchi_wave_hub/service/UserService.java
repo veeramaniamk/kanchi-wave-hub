@@ -32,7 +32,7 @@ public class UserService {
         Users existingUser = userRepository.getReferenceById(userId);
         if (existingUser != null) {
             existingUser.setName(updatedUser.getName());
-            existingUser.setEmail(updatedUser.getEmail());
+            // existingUser.setEmail(updatedUser.getEmail());
             existingUser.setAddress(updatedUser.getAddress());
             existingUser.setPhone(updatedUser.getPhone());
             return userRepository.save(existingUser);
