@@ -57,8 +57,11 @@ public class UserController {
         if (result.hasErrors()) {
             for (FieldError error : result.getFieldErrors()) {
                 response.put("status", 400);
+                // error.getObjectName()
                 response.put("message", error.getDefaultMessage());
-                return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+                if(error.getField().equals("email") || error.getField().equals("password")) {
+                    return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+                }
             }
         }
         
@@ -72,6 +75,9 @@ public class UserController {
         response.put("message", "Login Success");
         String token = jwtUtil.generateToken(existingUser);
         response.put("token", token);
+        response.put("name", existingUser.getName());
+        response.put("userType", existingUser.getUserType());
+        response.put("profile", existingUser.getProfileImage());
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
@@ -88,7 +94,9 @@ public class UserController {
             for (FieldError error : result.getFieldErrors()) {
                 response.put("status", 400);
                 response.put("message", error.getDefaultMessage());
-                return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+                if(error.getField().equals("name") || error.getField().equals("phone") || error.getField().equals("address")) {
+                    return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+                }
             }
         }
 
@@ -100,12 +108,13 @@ public class UserController {
         } catch (ExpiredJwtException e) {
             response.put("status", 400);
             response.put("message", e.getMessage());
+            response.put("from", e.getClass().getName());
             // TODO: handle exception
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // User not found
         } catch (SignatureException e) {
             throw new RuntimeException(e.getMessage(), e);
         } catch (Exception e) {
-            throw new RuntimeException(e.getMessage(), e);
+            throw new RuntimeException(e.getMessage() + " Exception", e);
        }
        if(users==null) {
           response.put("status", 404);

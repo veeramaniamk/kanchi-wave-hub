@@ -89,6 +89,7 @@ public class ValidationExceptionHandler {
         Map<String, Object> response = new HashMap<>();
         response.put("status", 400);
         response.put("message", ex.getMessage());
+        response.put("from", ex.getClass().getName());
         
         return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
     }
