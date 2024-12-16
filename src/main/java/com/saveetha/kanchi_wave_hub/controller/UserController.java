@@ -3,7 +3,14 @@ package com.saveetha.kanchi_wave_hub.controller;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -18,6 +25,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -219,30 +227,65 @@ public class UserController {
     }
 
     @PutMapping("/profileImage")
-    public ResponseEntity<Map<String, Object>> updateProfileImage() {
+    public ResponseEntity<Map<String, Object>> updateProfileImage(@RequestHeader("Authorization") String authorizationHeader, @RequestParam("file") MultipartFile file) {
 
         Map<String, Object> response = new HashMap<>();
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            response.put("status", 200);
+            response.put("message", jwtUtil.extractUserId("Empty Header"));
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // Token missing or invalid
+        }
+        String token   = authorizationHeader.substring(7);  // Remove "Bearer " prefix
+        Users user = null;
+        Integer userId;
+        try {
+        userId = jwtUtil.extractUserId(token);
+        user = userService.getUserProfile(userId);
+        } catch (ExpiredJwtException e) {
+            response.put("status", 400);
+            response.put("message", e.getMessage());
+            // TODO: handle exception
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // User not found
+        } catch (SignatureException e) {
+            throw new RuntimeException("Invalid JWT signature", e);
+        } catch (Exception e) {
+            throw new RuntimeException("Invalid token", e);
+        }
+
+        String filename = "";
+        try {
+            filename = saveImage(file);
+        }catch (IOException e) {
+            response.put("status", 500);
+            response.put("message", "File Upload Error "+ e.getMessage());
+            e.printStackTrace();
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        }
+        // response.put("current dir", filename);
+
+        userService.upateProfileImage(userId, filename);
         response.put("status", 200);
         response.put("message", "Success");
-        response.put("current dir", saveImage(null));
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    private String saveImage(MultipartFile file) {
+    private String saveImage(MultipartFile file) throws IOException {
 
         String path = System.getProperty("user.dir") + File.separator;
     //    String path = System.getProperty("java.io.tmpdir");
     //    return path;
         File dir = new File(path, "profile_image");
-        if(!dir.exists()){
-            if(dir.mkdir()) {
-                return "dir  created" ;
-            } else {
-                return "dir not created";
-            }
-        } else {
-            return "dir exists";
-        }
+
+        
+        if(!dir.exists()) dir.mkdir();
+
+        LocalDate currentDate = LocalDate.now();   
+        Path uploadPath = Paths.get(dir.getPath());
+        String fileName = currentDate + "-"+Calendar.getInstance().get(Calendar.MILLISECOND) + file.getOriginalFilename();
+        Path filePath   = uploadPath.resolve(fileName);
+        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+        return fileName;
 
         // return path;
     }
