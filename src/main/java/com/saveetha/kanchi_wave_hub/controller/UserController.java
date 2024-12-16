@@ -1,5 +1,9 @@
 package com.saveetha.kanchi_wave_hub.controller;
 
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -15,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.saveetha.kanchi_wave_hub.component.JwtUtil;
 import com.saveetha.kanchi_wave_hub.model.Users;
@@ -168,6 +173,33 @@ public class UserController {
         }
     }
 
+    @PutMapping("/profileImage")
+    public ResponseEntity<Map<String, Object>> updateProfileImage() {
 
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Success");
+        response.put("current dir", saveImage(null));
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    private String saveImage(MultipartFile file) {
+
+        String path = System.getProperty("user.dir") + File.separator;
+    //    String path = System.getProperty("java.io.tmpdir");
+    //    return path;
+        File dir = new File(path, "profile_image");
+        if(!dir.exists()){
+            if(dir.mkdir()) {
+                return "dir  created" ;
+            } else {
+                return "dir not created";
+            }
+        } else {
+            return "dir exists";
+        }
+
+        // return path;
+    }
 
 }
