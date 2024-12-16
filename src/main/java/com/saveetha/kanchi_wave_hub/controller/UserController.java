@@ -2,15 +2,12 @@ package com.saveetha.kanchi_wave_hub.controller;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -236,11 +233,9 @@ public class UserController {
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // Token missing or invalid
         }
         String token   = authorizationHeader.substring(7);  // Remove "Bearer " prefix
-        Users user = null;
         Integer userId;
         try {
         userId = jwtUtil.extractUserId(token);
-        user = userService.getUserProfile(userId);
         } catch (ExpiredJwtException e) {
             response.put("status", 400);
             response.put("message", e.getMessage());

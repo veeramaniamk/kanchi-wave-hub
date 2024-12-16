@@ -51,10 +51,14 @@ public class AdminController {
         }
 
         String token   = authorizationHeader.substring(7);  // Remove "Bearer " prefix
-        Users users = null;
         try {
           Integer userId = jwtUtil.extractUserId(token);
-          users = userService.updateUserProfile(userId, seller);
+          Users user = userService.getUserProfile(userId);
+          if(user.getUserType()!=111) {
+            response.put("status", 403);
+            response.put("message", "Access Denied");
+            return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);  // Token missing or invalid
+          }
         } catch (ExpiredJwtException e) {
             response.put("status", 400);
             response.put("message", e.getMessage());
