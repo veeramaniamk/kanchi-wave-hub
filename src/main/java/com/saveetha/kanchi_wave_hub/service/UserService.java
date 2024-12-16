@@ -37,6 +37,19 @@ public class UserService {
             existingUser.setPhone(updatedUser.getPhone());
             return userRepository.save(existingUser);
         }
-        return null;
+        return existingUser;
+    }
+
+    public Users upateProfileImage(Integer userId, String filename) {
+
+        Users existingUser = userRepository.getReferenceById(userId);
+        if (existingUser != null) {
+            // existingUser.setName(updatedUser.getName());
+            // existingUser.setEmail(updatedUser.getEmail());
+            // existingUser.setAddress(updatedUser.getAddress());
+            existingUser.setProfileImage(filename);
+            return userRepository.save(existingUser);
+        }
+        return existingUser;
     }
 }
