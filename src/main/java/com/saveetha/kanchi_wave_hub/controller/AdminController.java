@@ -23,7 +23,7 @@ import io.jsonwebtoken.security.SignatureException;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("api/admin")
+@RequestMapping("/admin")
 public class AdminController {
    
     @Autowired

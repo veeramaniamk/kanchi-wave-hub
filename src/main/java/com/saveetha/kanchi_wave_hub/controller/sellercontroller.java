@@ -25,7 +25,7 @@ import io.jsonwebtoken.security.SignatureException;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/admin")
+@RequestMapping("/seller")
 
 public class sellercontroller {
 
@@ -73,7 +73,7 @@ public ResponseEntity<ApiResponse> createSeller(
         }
 
         // Set seller-specific properties
-        seller.setUserType(100); // Assuming 110 represents 'seller'
+        seller.setUserType(101); // Assuming 110 represents 'seller'
         userService.saveUser(seller);
 
         return new ResponseEntity<>(getResponse(200, "Seller account created successfully!"), HttpStatus.OK);
@@ -129,8 +129,6 @@ public ResponseEntity<ApiResponse> createSeller(
             return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);  // User not found
         }
     }
-
-
 
 }
 
