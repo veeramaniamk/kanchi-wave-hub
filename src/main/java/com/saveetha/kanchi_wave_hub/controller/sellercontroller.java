@@ -1,133 +1,173 @@
 package com.saveetha.kanchi_wave_hub.controller;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.BindingResult;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.saveetha.kanchi_wave_hub.component.JwtUtil;
+import com.saveetha.kanchi_wave_hub.model.Product;
 import com.saveetha.kanchi_wave_hub.model.Users;
-import com.saveetha.kanchi_wave_hub.response.ApiResponse;
+import com.saveetha.kanchi_wave_hub.service.ProductImageService;
+import com.saveetha.kanchi_wave_hub.service.ProductService;
 import com.saveetha.kanchi_wave_hub.service.UserService;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.security.SignatureException;
-import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/seller")
-
 public class sellercontroller {
+
+    @Autowired
+    private ProductService sellService;
 
     @Autowired
     private UserService userService;
 
     @Autowired
+    private ProductImageService imageService;
+
+    @Autowired
     private JwtUtil jwtUtil;
 
-    private ApiResponse getResponse(int status, String msg) {
-        return new ApiResponse(status, msg);
-    }
-
-    @PostMapping("/create-seller")
-public ResponseEntity<ApiResponse> createSeller(
-        @RequestHeader("Authorization") String authorizationHeader,
-        @RequestBody @Valid Users seller, 
-        BindingResult result) {
-
-    // Validate the authorization header
-    if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-        return new ResponseEntity<>(getResponse(401, "Missing or invalid Authorization header"), HttpStatus.UNAUTHORIZED);
-    }
-
-    String token = authorizationHeader.substring(7); // Remove "Bearer " prefix
-    try {
-        Integer adminId = jwtUtil.extractUserId(token); // Extract user ID from token
-        Users admin = userService.getUserProfile(adminId);
-
-        // Check if the user is an admin
-        if (admin == null || admin.getUserType() != 111) { // Assuming 100 represents 'admin'
-            return new ResponseEntity<>(getResponse(403, "Only admins can create sellers"), HttpStatus.FORBIDDEN);
-        }
-
-        // Check for validation errors in the seller object
-        if (result.hasErrors()) {
-            for (FieldError error : result.getFieldErrors()) {
-                return new ResponseEntity<>(getResponse(400, error.getDefaultMessage()), HttpStatus.BAD_REQUEST);
-            }
-        }
-
-        // Check if the email already exists
-        if (userService.checkMailExist(seller)) {
-            return new ResponseEntity<>(getResponse(409, "Email already exists"), HttpStatus.CONFLICT);
-        }
-
-        // Set seller-specific properties
-        seller.setUserType(101); // Assuming 110 represents 'seller'
-        userService.saveUser(seller);
-
-        return new ResponseEntity<>(getResponse(200, "Seller account created successfully!"), HttpStatus.OK);
-
-    } catch (ExpiredJwtException e) {
-        return new ResponseEntity<>(getResponse(401, "Token expired"), HttpStatus.UNAUTHORIZED);
-    } catch (SignatureException e) {
-        return new ResponseEntity<>(getResponse(401, "Invalid token signature"), HttpStatus.UNAUTHORIZED);
-    } catch (Exception e) {
-        return new ResponseEntity<>(getResponse(500, "An unexpected error occurred"), HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-}
-
-
-    @GetMapping("/profile")
-    public ResponseEntity<Map<String, Object>> getProfile(@RequestHeader("Authorization") String authorizationHeader) {
+    @PostMapping(value = "/create_product", consumes = "multipart/form-data")
+    public ResponseEntity<Map<String, Object>> createProduct(
+        @RequestHeader("Authorization") String header, 
+        @RequestPart String productName, @RequestPart String product_description,
+        @RequestPart String product_mrp, @RequestPart String product_offer,
+        @RequestPart String product_price, @RequestPart("product_images") List<MultipartFile> files) {
         Map<String, Object> response = new HashMap<>();
-        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            response.put("status", 200);
-            response.put("message", jwtUtil.extractUserId("Empty Header"));
+        if (header == null || !header.startsWith("Bearer ")) {
+            response.put("status", 400);
+            response.put("message", "Empty Header");
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // Token missing or invalid
         }
-        String token   = authorizationHeader.substring(7);  // Remove "Bearer " prefix
-        Users user = null;
+
+        if(files.isEmpty()) {
+            response.put("status", 400);
+            response.put("message", "Select Images");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+
+        String token = header.substring(7);
+
         try {
-        Integer userId = jwtUtil.extractUserId(token);
-        user = userService.getUserProfile(userId);
-        } catch (ExpiredJwtException e) {
+            Integer userId = jwtUtil.extractUserId(token);
+
+            Users userData = userService.getUserProfile(userId);
+
+            if(userData.getUserType() != 101) {
+                response.put("status", 403);
+                response.put("message", "Access Denied ");
+                return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+            }
+
+            Product product = new Product();
+
+            product.setProduct_name(productName);
+            product.setProduct_description(product_description);
+            product.setProduct_mrp(Integer.parseInt(product_mrp));
+            product.setProduct_offer(Integer.parseInt(product_offer));
+            product.setProduct_price(Integer.parseInt(product_price));
+            product.setSeller_id(userId);
+
+            try {
+                sellService.saveProductWithImages(product, files);
+            } catch (IOException ex) {
+                response.put("status", 500);
+                response.put("message", ex.getMessage());
+                response.put("from", "IO exception");
+                return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+
+            response.put("status", 200);
+            response.put("message", "Product Created");
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } 
+        catch (ExpiredJwtException e) {
             response.put("status", 400);
             response.put("message", e.getMessage());
+            response.put("from", e.getClass().getName());
             // TODO: handle exception
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // User not found
-        } catch (SignatureException e) {
-            throw new RuntimeException("Invalid JWT signature", e);
-        } catch (Exception e) {
-            throw new RuntimeException("Invalid token", e);
-       }
-        
-        if (user != null) {
-            response.put("status", 200);
-            response.put("message", "success");
-            Map<String, Object> data = new HashMap<>();
-            data.put("userId", user.getId());
-            data.put("email", user.getEmail());
-            data.put("phone", user.getPhone());
-            data.put("address", user.getAddress());
-            data.put("profile_image", user.getProfileImage());
-            response.put("data", data);
-            return new ResponseEntity<>(response, HttpStatus.OK);
-        } else {
-            response.put("status", 404);
-            response.put("message", "user not found");
-            return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);  // User not found
+        } 
+        catch (SignatureException e) {
+            throw new RuntimeException(e.getMessage(), e);
+        } 
+    }
+
+    @GetMapping("/fetch_product")
+    public ResponseEntity<Map<String, Object>> getProduct(@RequestHeader("Authorization") String header,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size) {
+        Map<String, Object> response = new HashMap<>();
+        if (header == null || !header.startsWith("Bearer ")) {
+            response.put("status", 400);
+            response.put("message", "Empty Header");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // Token missing or invalid
         }
+
+        String token = header.substring(7);
+
+        try {
+            Integer userId = jwtUtil.extractUserId(token);
+
+            Users userData = userService.getUserProfile(userId);
+
+            if(userData.getUserType() != 101) {
+                response.put("status", 403);
+                response.put("message", "Access Denied ");
+                return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+            }
+
+            response.put("status", 200);
+            response.put("message", "Success");
+            response.put("data", sellService.getProductsWithImagesBySellerId(userId, page, size));
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } 
+        catch (ExpiredJwtException e) {
+            response.put("status", 400);
+            response.put("message", e.getMessage());
+            response.put("from", e.getClass().getName());
+            // TODO: handle exception
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // User not found
+        } 
+        catch (SignatureException e) {
+            throw new RuntimeException(e.getMessage(), e);
+        } 
+
+        // return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @GetMapping("/images/{imageName}")
+    public ResponseEntity<byte[]> serveImage(@PathVariable String imageName) {
+        try {
+            String path = System.getProperty("user.dir") + File.separator + "product_image";
+            Path imagePath = Paths.get(path, imageName);
+            byte[] imageData = Files.readAllBytes(imagePath);
+            return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(imageData);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } 
     }
 
 }
