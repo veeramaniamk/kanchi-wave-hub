@@ -58,50 +58,6 @@ public class UserController {
         userService.saveUser(user);
         return new ResponseEntity<>(getResponse(200, "User registered successfully!"), HttpStatus.OK);
     }
-    @PostMapping("/createSeller")
-    public ResponseEntity<Map<String, Object>> createSeller(@RequestHeader("Authorization") String authorizationHeader, @RequestBody @Valid Users seller,BindingResult result) {
-        Map<String, Object> response = new HashMap<>();
-        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            response.put("status", 200);
-            response.put("message", jwtUtil.extractUserId("Empty Header"));
-            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // Token missing or invalid
-        }
-
-        if (result.hasErrors()) {
-            for (FieldError error : result.getFieldErrors()) {
-                response.put("status", 400);
-                response.put("message", error.getDefaultMessage());
-                if(error.getField().equals("name") || error.getField().equals("phone") || error.getField().equals("address")) {
-                    return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-                }
-            }
-        }
-
-        String token   = authorizationHeader.substring(7);  // Remove "Bearer " prefix
-        Users users = null;
-        try {
-          Integer userId = jwtUtil.extractUserId(token);
-          users = userService.updateUserProfile(userId, seller);
-        } catch (ExpiredJwtException e) {
-            response.put("status", 400);
-            response.put("message", e.getMessage());
-            response.put("from", e.getClass().getName());
-            // TODO: handle exception
-            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // User not found
-        } catch (SignatureException e) {
-            throw new RuntimeException(e.getMessage(), e);
-        } catch (Exception e) {
-            throw new RuntimeException(e.getMessage() + " Exception", e);
-       }
-       if(users==null) {
-          response.put("status", 404);
-          response.put("message", "seller Not Found");
-          return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
-        }
-          response.put("status", 200);
-          response.put("message", "seller Profile Updated");
-        return new ResponseEntity<>(response, HttpStatus.OK);
-    }
 
 
     @PostMapping("/login")
@@ -140,8 +96,8 @@ public class UserController {
     public ResponseEntity<Map<String, Object>> decodeToken(@RequestHeader("Authorization") String authorizationHeader, @RequestBody @Valid Users user, BindingResult result) {
         Map<String, Object> response = new HashMap<>();
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            response.put("status", 200);
-            response.put("message", jwtUtil.extractUserId("Empty Header"));
+            response.put("status", 400);
+            response.put("message", "Empty Header");
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // Token missing or invalid
         }
 
