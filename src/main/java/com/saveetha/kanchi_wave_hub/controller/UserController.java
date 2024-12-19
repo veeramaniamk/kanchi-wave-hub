@@ -214,10 +214,11 @@ public class UserController {
         }
         // response.put("current dir", filename);
 
-        userService.upateProfileImage(userId, filename);
+        userService.upateProfileImage(userId, filename); 
         response.put("status", 200);
         response.put("message", "Success");
         return new ResponseEntity<>(response, HttpStatus.OK);
+        
     }
 
     private String saveImage(MultipartFile file) throws IOException {
