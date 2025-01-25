@@ -32,9 +32,9 @@ public class paymentService {
 
     private static final String IMAGE_BASE_URL = "seller/images/";
 
-    public List<OrderData> getOrderBySellerId(int sellerId) {
+    public List<OrderData> getOrderBySellerId(int sellerId, String status) {
 
-        List<payment> orderData = paymentRepository.findBySellerid(sellerId);
+        List<payment> orderData = paymentRepository.findBySelleridAndStatus(sellerId, status);
         List<OrderData> responseData = new ArrayList();
         orderData.forEach(data-> {
             OrderData orderResponseData = new OrderData();
@@ -48,7 +48,8 @@ public class paymentService {
                 orderResponseData.setPaymentDate(data.getPaymentDate());
                 orderResponseData.setPaymentMethod(data.getPaymentMethod());
                 orderResponseData.setTransactionId(data.getTransactionId());
-                orderResponseData.setStatus(data.getStatus());
+                // orderResponseData.setStatus(data.getStatus());
+                orderResponseData.setStatus("pending");
                 orderResponseData.setQuantity(data.getQuantity());
                 orderResponseData.setSellerId(data.getsellerid());
                 orderResponseData.setProductId(data.getProductId());
@@ -65,4 +66,9 @@ public class paymentService {
         });
         return responseData;
     }
+
+    public int updateOrer(int orderId, String status, int sellerId) {
+        return paymentRepository.updateOrder(orderId, status, sellerId);
+    }
+
 }

@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -106,6 +107,12 @@ public class ValidationExceptionHandler {
         // Customize your error message
         String errorMessage = ex.getMessage();
         return new ResponseEntity<>(new ApiResponse(500, errorMessage), HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse> missingBody(MissingServletRequestParameterException ex) {
+        // Customize your error message
+        String errorMessage = ex.getMessage();
+        return new ResponseEntity<>(new ApiResponse(400, errorMessage), HttpStatus.BAD_REQUEST);
     }
 
 }
