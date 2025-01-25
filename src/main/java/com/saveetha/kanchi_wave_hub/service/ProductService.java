@@ -12,6 +12,7 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.hibernate.query.Page;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
@@ -36,7 +37,7 @@ public class ProductService {
     @Autowired
     private ProductImageRepository imageRepository;
 
-    private static final String IMAGE_BASE_URL = "http://localhost:8080/images/";
+    private static final String IMAGE_BASE_URL = "seller/images/";
 
     public void saveProductWithImages(Product product, List<MultipartFile> images) throws IOException {
 
@@ -109,5 +110,71 @@ public class ProductService {
             return productDTO;
         }).collect(Collectors.toList());
     }
+
+    @Transactional
+    public List<ProductDTO> getProductForUser(int page, int size) {
+        // Fetch products by sellerId
+        Pageable pageable = PageRequest.of(page, size);
+        // List<Product> products = repository.findBySellerId(1, pageable);
+        org.springframework.data.domain.Page<Product> products = repository.findAll(pageable);
+
+        // Map products to ProductDTOs and include images with URLs
+        return products.get().map(product -> {
+            ProductDTO productDTO = new ProductDTO();
+            productDTO.setId(product.getId());
+            productDTO.setSellerId(product.getSeller_id());
+            productDTO.setProductName(product.getProduct_name());
+            productDTO.setProductDescription(product.getProduct_description());
+            productDTO.setProductMrp(product.getProduct_mrp());
+            productDTO.setProductOffer(product.getProduct_offer());
+            productDTO.setProductPrice(product.getProduct_price());
+
+            // Fetch images for the product
+            List<ProductImageDTO> productImages = imageRepository.findByProductId(product.getId()).stream()
+                    .map(image -> new ProductImageDTO(
+                            image.getId(),
+                            IMAGE_BASE_URL + image.getImageName()  // Create the full image URL
+                    ))
+                    .collect(Collectors.toList());
+
+            productDTO.setProductImages(productImages);
+            return productDTO;
+        }).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public List<ProductDTO> getProductsWithId(int sellerId) {
+        // Fetch products by sellerId
+        // Pageable pageable = PageRequest.of();
+        List<Product> products = repository.findById(sellerId);
+
+        // Map products to ProductDTOs and include images with URLs
+        return products.stream().map(product -> {
+            ProductDTO productDTO = new ProductDTO();
+            productDTO.setId(product.getId());
+            productDTO.setSellerId(product.getSeller_id());
+            productDTO.setProductName(product.getProduct_name());
+            productDTO.setProductDescription(product.getProduct_description());
+            productDTO.setProductMrp(product.getProduct_mrp());
+            productDTO.setProductOffer(product.getProduct_offer());
+            productDTO.setProductPrice(product.getProduct_price());
+
+            // Fetch images for the product
+            List<ProductImageDTO> productImages = imageRepository.findByProductId(product.getId()).stream()
+                    .map(image -> new ProductImageDTO(
+                            image.getId(),
+                            IMAGE_BASE_URL + image.getImageName()  // Create the full image URL
+                    ))
+                    .collect(Collectors.toList());
+
+            productDTO.setProductImages(productImages);
+            return productDTO;
+        }).collect(Collectors.toList());
+    }
+
+
+    // public List<Object[]> getSingleProductWithImage(Long productId) {
+    //     return repository.findProductWithImages(productId);
+    // }  
 
 }

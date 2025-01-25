@@ -13,10 +13,12 @@ import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,10 +31,13 @@ import org.springframework.web.multipart.MultipartFile;
 import com.saveetha.kanchi_wave_hub.component.JwtUtil;
 import com.saveetha.kanchi_wave_hub.model.Users;
 import com.saveetha.kanchi_wave_hub.response.ApiResponse;
+import com.saveetha.kanchi_wave_hub.service.ProductService;
 import com.saveetha.kanchi_wave_hub.service.UserService;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.security.SignatureException;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.validation.Valid;
 
 @RestController
@@ -41,6 +46,8 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+    @Autowired
+    private ProductService ProductService;
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -88,6 +95,8 @@ public class UserController {
         response.put("token", token);
         response.put("name", existingUser.getName());
         response.put("userType", existingUser.getUserType());
+        response.put("userId", existingUser.getId());
+        response.put("email", existingUser.getEmail());
         response.put("profile", existingUser.getProfileImage());
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
@@ -178,6 +187,61 @@ public class UserController {
             return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);  // User not found
         }
     }
+    
+    @GetMapping("/fetch_product")
+    public ResponseEntity<Map<String, Object>> getProduct(@RequestHeader("Authorization") String header,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size) {
+        Map<String, Object> response = new HashMap<>();
+        if (header == null || !header.startsWith("Bearer ")) {
+            response.put("status", 400);
+            response.put("message", "Empty Header");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // Token missing or invalid
+        }
+
+        String token = header.substring(7);
+
+        try {
+            Integer userId = jwtUtil.extractUserId(token);
+
+            Users userData = userService.getUserProfile(userId);
+
+            if(userData.getUserType() != 100) {
+                response.put("status", 403);
+                response.put("message", "Access Denied ");
+                return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+            }
+
+            response.put("status", 200);
+            response.put("message", "Success");
+            response.put("data", ProductService.getProductForUser(page, size));
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } 
+        catch (ExpiredJwtException e) {
+            response.put("status", 400);
+            response.put("message", e.getMessage());
+            response.put("from", e.getClass().getName());
+            // TODO: handle exception
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // User not found
+        } 
+        catch (SignatureException e) {
+            throw new RuntimeException(e.getMessage(), e);
+        } 
+
+        // return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @GetMapping("/images/{imageName}")
+    public ResponseEntity<byte[]> serveImage(@PathVariable String imageName) {
+        try {
+            String path = System.getProperty("user.dir") + File.separator + "product_image";
+            Path imagePath = Paths.get(path, imageName);
+            byte[] imageData = Files.readAllBytes(imagePath);
+            return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(imageData);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } 
+    }
 
     @PutMapping("/profileImage")
     public ResponseEntity<Map<String, Object>> updateProfileImage(@RequestHeader("Authorization") String authorizationHeader, @RequestParam("file") MultipartFile file) {
@@ -214,10 +278,11 @@ public class UserController {
         }
         // response.put("current dir", filename);
 
-        userService.upateProfileImage(userId, filename);
+        userService.upateProfileImage(userId, filename); 
         response.put("status", 200);
         response.put("message", "Success");
         return new ResponseEntity<>(response, HttpStatus.OK);
+        
     }
 
     private String saveImage(MultipartFile file) throws IOException {
