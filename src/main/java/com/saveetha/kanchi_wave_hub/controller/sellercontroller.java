@@ -24,14 +24,21 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.saveetha.kanchi_wave_hub.component.JwtUtil;
+import com.saveetha.kanchi_wave_hub.data.ProductDTO;
 import com.saveetha.kanchi_wave_hub.model.Product;
 import com.saveetha.kanchi_wave_hub.model.Users;
 import com.saveetha.kanchi_wave_hub.service.ProductImageService;
 import com.saveetha.kanchi_wave_hub.service.ProductService;
 import com.saveetha.kanchi_wave_hub.service.UserService;
+import com.saveetha.kanchi_wave_hub.service.paymentService;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.security.SignatureException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/seller")
@@ -45,6 +52,9 @@ public class sellercontroller {
 
     @Autowired
     private ProductImageService imageService;
+
+    @Autowired
+    private paymentService paymentService;
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -75,7 +85,7 @@ public class sellercontroller {
 
             Users userData = userService.getUserProfile(userId);
 
-            if(userData.getUserType() != 101) {
+            if(userData.getUserType() != 110) {
                 response.put("status", 403);
                 response.put("message", "Access Denied ");
                 return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
@@ -133,7 +143,7 @@ public class sellercontroller {
 
             Users userData = userService.getUserProfile(userId);
 
-            if(userData.getUserType() != 101) {
+            if(userData.getUserType() != 110) {
                 response.put("status", 403);
                 response.put("message", "Access Denied ");
                 return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
@@ -169,6 +179,75 @@ public class sellercontroller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         } 
     }
+
+    @GetMapping("/get_orders")
+    public ResponseEntity<Map<String, Object>> getOrders(@RequestHeader("Authorization") String header) {
+        Map<String, Object> response = new HashMap<>();
+        if (header == null || !header.startsWith("Bearer ")) {
+            response.put("status", 400);
+            response.put("message", "Empty Header");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // Token missing or invalid
+        }
+
+        String token = header.substring(7);
+        try {
+            Integer userId = jwtUtil.extractUserId(token);
+
+            Users userData = userService.getUserProfile(userId);
+
+            if(userData.getUserType() != 110) {
+                response.put("status", 403);
+                response.put("message", "Access Denied ");
+                return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+            }
+
+            if(paymentService.getOrderBySellerId(userId).isEmpty()) {
+                response.put("status", 404);
+                response.put("message", "Order Not Found");
+                return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+            }
+
+            response.put("status", 200);
+            response.put("message", "Success");
+            response.put("data", paymentService.getOrderBySellerId(userId));
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } 
+        catch (ExpiredJwtException e) {
+            response.put("status", 400);
+            response.put("message", e.getMessage());
+            response.put("from", e.getClass().getName());
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // User not found
+        } 
+        catch (SignatureException e) {
+            throw new RuntimeException(e.getMessage(), e);
+        }
+        // return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+    }
+
+    @GetMapping("/get_single_product/{productId}")
+    public ResponseEntity<Map<String, Object>> getMethodName(@PathVariable Integer productId) {
+        Map<String, Object> response = new HashMap<>();
+        
+        if(productId==0) {
+            response.put("status", 400);
+            response.put("message", "Product Id Missing");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+        response.put("status", 200);
+        response.put("message", "Success");
+        List<ProductDTO> data = sellService.getProductsWithId(productId);
+
+        if(data.size()==0) {
+            response.put("status", 404);
+            response.put("message", "Product Not Found");
+            return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+        }
+
+        response.put("data", data.get(0));
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+    
+    
 
 }
 
