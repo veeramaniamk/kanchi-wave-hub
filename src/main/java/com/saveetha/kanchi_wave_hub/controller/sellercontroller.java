@@ -34,11 +34,6 @@ import com.saveetha.kanchi_wave_hub.service.paymentService;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.security.SignatureException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/seller")
@@ -181,7 +176,8 @@ public class sellercontroller {
     }
 
     @GetMapping("/get_orders")
-    public ResponseEntity<Map<String, Object>> getOrders(@RequestHeader("Authorization") String header) {
+    public ResponseEntity<Map<String, Object>> getOrders(@RequestHeader("Authorization") String header,
+    @RequestParam String status) {
         Map<String, Object> response = new HashMap<>();
         if (header == null || !header.startsWith("Bearer ")) {
             response.put("status", 400);
@@ -201,15 +197,15 @@ public class sellercontroller {
                 return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
             }
 
-            if(paymentService.getOrderBySellerId(userId).isEmpty()) {
+            if(paymentService.getOrderBySellerId(userId, status).isEmpty()) {
                 response.put("status", 404);
                 response.put("message", "Order Not Found");
                 return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
             }
-
+            
             response.put("status", 200);
             response.put("message", "Success");
-            response.put("data", paymentService.getOrderBySellerId(userId));
+            response.put("data", paymentService.getOrderBySellerId(userId, status));
             return new ResponseEntity<>(response, HttpStatus.OK);
         } 
         catch (ExpiredJwtException e) {
@@ -246,8 +242,48 @@ public class sellercontroller {
         response.put("data", data.get(0));
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
-    
-    
+
+    @PostMapping("/update_order")
+    public ResponseEntity<Map<String, Object>> updateOrder(@RequestHeader("Authorization") String header
+    , @RequestParam String status, @RequestParam Integer orderId) {
+        Map<String, Object> response = new HashMap<>();
+        if (header == null || !header.startsWith("Bearer ")) {
+            response.put("status", 400);
+            response.put("message", "Empty Header");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // Token missing or invalid
+        }
+
+        String token = header.substring(7);
+        try {
+            Integer userId = jwtUtil.extractUserId(token);
+
+            Users userData = userService.getUserProfile(userId);
+
+            if(userData.getUserType() != 110) {
+                response.put("status", 403);
+                response.put("message", "Access Denied ");
+                return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+            }
+
+            if(paymentService.updateOrer(orderId, status, userId)==0) {
+                response.put("status", 404);
+                response.put("message", "Order Not Found");
+                return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+            }
+
+            response.put("status", 200);
+            response.put("message", "Order Updated");
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        }catch (ExpiredJwtException e) {
+            response.put("status", 400);
+            response.put("message", e.getMessage());
+            response.put("from", e.getClass().getName());
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // User not found
+        } 
+        catch (SignatureException e) {
+            throw new RuntimeException(e.getMessage(), e);
+        } 
+    }
 
 }
 
