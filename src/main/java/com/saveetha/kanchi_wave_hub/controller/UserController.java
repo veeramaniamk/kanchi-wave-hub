@@ -33,11 +33,10 @@ import com.saveetha.kanchi_wave_hub.model.Users;
 import com.saveetha.kanchi_wave_hub.response.ApiResponse;
 import com.saveetha.kanchi_wave_hub.service.ProductService;
 import com.saveetha.kanchi_wave_hub.service.UserService;
+import com.saveetha.kanchi_wave_hub.service.paymentService;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.security.SignatureException;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.validation.Valid;
 
 @RestController
@@ -51,6 +50,10 @@ public class UserController {
 
     @Autowired
     private JwtUtil jwtUtil;
+
+     @Autowired
+    private paymentService paymentService;
+
 
     private ApiResponse getResponse(int status, String msg) {
         return new ApiResponse(status, msg);
@@ -305,5 +308,81 @@ public class UserController {
 
         // return path;
     }
+
+
+    @GetMapping("/get_orders")
+    public ResponseEntity<Map<String, Object>> getOrders(@RequestHeader("Authorization") String header,
+    @RequestParam String status) {
+        Map<String, Object> response = new HashMap<>();
+        if (header == null || !header.startsWith("Bearer ")) {
+            response.put("status", 400);
+            response.put("message", "Empty Header");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // Token missing or invalid
+        }
+
+        String token = header.substring(7);
+        try {
+            Integer userId = jwtUtil.extractUserId(token);
+
+            // Users userData = userService.getUserProfile(userId);
+            if(paymentService.getOrderByUserId(userId, status).isEmpty()) {
+                response.put("status", 404);
+                response.put("message", "Order Not Found");
+                return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+            }
+            
+            response.put("status", 200);
+            response.put("message", "Success");
+            response.put("data", paymentService.getOrderByUserId(userId, status));
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } 
+        catch (ExpiredJwtException e) {
+            response.put("status", 400);
+            response.put("message", e.getMessage());
+            response.put("from", e.getClass().getName());
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // User not found
+        } 
+        catch (SignatureException e) {
+            throw new RuntimeException(e.getMessage(), e);
+        }
+        // return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+    }
+
+    @PostMapping("/update_order")
+    public ResponseEntity<Map<String, Object>> updateOrder(@RequestHeader("Authorization") String header
+    , @RequestParam String status, @RequestParam Integer orderId) {
+        Map<String, Object> response = new HashMap<>();
+        if (header == null || !header.startsWith("Bearer ")) {
+            response.put("status", 400);
+            response.put("message", "Empty Header");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // Token missing or invalid
+        }
+
+        String token = header.substring(7);
+        try {
+            Integer userId = jwtUtil.extractUserId(token);
+
+            Users userData = userService.getUserProfile(userId);
+
+            if(paymentService.updateOrer(orderId, status, userId)==0) {
+                response.put("status", 404);
+                response.put("message", "Order Not Found");
+                return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+            }
+
+            response.put("status", 200);
+            response.put("message", "Order Updated");
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        }catch (ExpiredJwtException e) {
+            response.put("status", 400);
+            response.put("message", e.getMessage());
+            response.put("from", e.getClass().getName());
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);  // User not found
+        } 
+        catch (SignatureException e) {
+            throw new RuntimeException(e.getMessage(), e);
+        } 
+    }
+
 
 }

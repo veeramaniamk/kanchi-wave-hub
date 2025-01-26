@@ -67,6 +67,42 @@ public class paymentService {
         return responseData;
     }
 
+    public List<OrderData> getOrderByUserId(int userId, String status) {
+
+        List<payment> orderData = paymentRepository.findByUseridAndStatus(userId, status);
+        List<OrderData> responseData = new ArrayList();
+        orderData.forEach(data-> {
+            OrderData orderResponseData = new OrderData();
+
+            Product product = productRepository.getReferenceById(data.getProductId());
+            if(product!=null) {
+                List<ProductImage> productImages = imageRepository.findByProductId(product.getId());
+                orderResponseData.setAddress(data.getaddress());
+                orderResponseData.setAmount(data.getAmount());
+                orderResponseData.setOrderId(data.getOrderId());
+                orderResponseData.setPaymentDate(data.getPaymentDate());
+                orderResponseData.setPaymentMethod(data.getPaymentMethod());
+                orderResponseData.setTransactionId(data.getTransactionId());
+                // orderResponseData.setStatus(data.getStatus());
+                orderResponseData.setStatus("pending");
+                orderResponseData.setQuantity(data.getQuantity());
+                orderResponseData.setSellerId(data.getsellerid());
+                orderResponseData.setProductId(data.getProductId());
+                orderResponseData.setUserId(data.getUserId());
+                orderResponseData.setProductName(product.getProduct_name());
+                
+                if(productImages.size()>0) {
+                    orderResponseData.setProductImage(IMAGE_BASE_URL+productImages.get(0).getImageName());
+                } else {
+                    orderResponseData.setProductImage(null);
+                }
+            }
+            responseData.add(orderResponseData);
+        });
+        return responseData;
+    }
+
+    
     public int updateOrer(int orderId, String status, int sellerId) {
         return paymentRepository.updateOrder(orderId, status, sellerId);
     }

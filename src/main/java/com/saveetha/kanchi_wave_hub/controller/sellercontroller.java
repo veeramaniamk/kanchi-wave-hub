@@ -27,6 +27,7 @@ import com.saveetha.kanchi_wave_hub.component.JwtUtil;
 import com.saveetha.kanchi_wave_hub.data.ProductDTO;
 import com.saveetha.kanchi_wave_hub.model.Product;
 import com.saveetha.kanchi_wave_hub.model.Users;
+import com.saveetha.kanchi_wave_hub.service.ProductImageService;
 import com.saveetha.kanchi_wave_hub.service.ProductService;
 import com.saveetha.kanchi_wave_hub.service.UserService;
 import com.saveetha.kanchi_wave_hub.service.paymentService;
