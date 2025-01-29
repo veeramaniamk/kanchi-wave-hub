@@ -17,7 +17,7 @@ public interface paymentRepository extends JpaRepository<payment, Integer>{
     List<payment> findBySelleridAndStatus(Integer sellerId, String status);
 
     // List<payment> findBySelleridAndStatus(Integer sellerId, String status);
-    List<payment> findByOrderId(Integer orderId);
+    // List<payment> findByOrderId(Integer orderId);
 
     @Modifying
     @Transactional
