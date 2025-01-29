@@ -49,7 +49,7 @@ public class paymentService {
                 orderResponseData.setPaymentMethod(data.getPaymentMethod());
                 orderResponseData.setTransactionId(data.getTransactionId());
                 // orderResponseData.setStatus(data.getStatus());
-                orderResponseData.setStatus("pending");
+                orderResponseData.setStatus(data.getStatus());
                 orderResponseData.setQuantity(data.getQuantity());
                 orderResponseData.setSellerId(data.getsellerid());
                 orderResponseData.setProductId(data.getProductId());
