@@ -93,6 +93,8 @@ public class DatabasePerformanceTest extends BaseIntegrationTest {
             prod.setProduct_name("Banarasi Zari");
             prod.setProduct_description("Pure silk");
             prod.setProduct_price(5000);
+            prod.setProduct_mrp(5500);
+            prod.setProduct_offer(10);
             prod.setSeller_id(10);
             productRepository.save(prod);
 
@@ -132,6 +134,8 @@ public class DatabasePerformanceTest extends BaseIntegrationTest {
                 prod.setProduct_name("Saree " + i);
                 prod.setProduct_description("Silk saree " + i);
                 prod.setProduct_price(3000 + (i * 100));
+                prod.setProduct_mrp(3500 + (i * 100));
+                prod.setProduct_offer(10);
                 prod.setSeller_id(110);
                 Product saved = productRepository.save(prod);
 

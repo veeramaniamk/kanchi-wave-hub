@@ -1,5 +1,7 @@
 package com.saveetha.kanchi_wave_hub.qa.integration;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -7,11 +9,22 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import com.saveetha.kanchi_wave_hub.config.RateLimitingFilter;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Testcontainers
 public abstract class BaseIntegrationTest {
+
+    @Autowired(required = false)
+    private RateLimitingFilter rateLimitingFilter;
+
+    @BeforeEach
+    public void resetRateLimiter() {
+        if (rateLimitingFilter != null) {
+            rateLimitingFilter.reset();
+        }
+    }
 
     protected static final MySQLContainer<?> mysqlContainer;
 
@@ -51,5 +64,6 @@ public abstract class BaseIntegrationTest {
         registry.add("spring.datasource.driver-class-name", () -> "com.mysql.cj.jdbc.Driver");
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
         registry.add("spring.jpa.properties.hibernate.dialect", () -> "org.hibernate.dialect.MySQLDialect");
+        registry.add("app.rate-limit", () -> "5");
     }
 }

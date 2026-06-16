@@ -14,7 +14,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class RateLimitingFilter implements Filter {
 
     private final Map<String, RequestCounter> limitMap = new ConcurrentHashMap<>();
-    private static final int LIMIT = 50; // max requests
+    
+    @org.springframework.beans.factory.annotation.Value("${app.rate-limit:50}")
+    private int limit;
+
     private static final long TIME_WINDOW_MS = 1000; // 1 second window
 
     private static class RequestCounter {
@@ -61,7 +64,7 @@ public class RateLimitingFilter implements Filter {
             }
         });
 
-        if (counter.count.get() > LIMIT) {
+        if (counter.count.get() > limit) {
             httpResponse.setStatus(429); // Too Many Requests
             httpResponse.setContentType("application/json");
             httpResponse.getWriter().write("{\"status\":429,\"message\":\"Too Many Requests. Rate limit exceeded.\"}");
@@ -71,8 +74,12 @@ public class RateLimitingFilter implements Filter {
         chain.doFilter(request, response);
     }
 
+    public void reset() {
+        limitMap.clear();
+    }
+
     @Override
     public void destroy() {
-        limitMap.clear();
+        reset();
     }
 }
