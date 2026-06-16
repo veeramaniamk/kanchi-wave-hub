@@ -46,11 +46,11 @@ This command automatically:
 - Generates the JaCoCo coverage XML reports inside `target/site/jacoco/`.
 
 ### 2. Start Application for Performance Testing
-To execute k6 performance scripts, start the application locally:
+To execute k6 performance scripts, start the application locally with a high rate limit configuration (so k6 traffic isn't blocked by the API rate limiter):
 ```bash
 # Set environment datasource to local MySQL or test profile
-# Then boot up the application:
-mvn spring-boot:run
+# Then boot up the application with a high rate-limit override:
+mvn spring-boot:run -Dspring-boot.run.arguments="--app.rate-limit=100000"
 ```
 Make sure the server is healthy at: `http://localhost:8080/actuator/health`
 

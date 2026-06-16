@@ -41,7 +41,7 @@ jobs:
 
       - name: Start Spring Boot App in Background
         run: |
-          nohup mvn spring-boot:run -Dspring-boot.run.arguments="--spring.profiles.active=prod" > spring-boot.log 2>&1 &
+          nohup mvn spring-boot:run -Dspring-boot.run.arguments="--spring.profiles.active=prod --app.rate-limit=100000" > spring-boot.log 2>&1 &
         env:
           SPRING_DATASOURCE_URL: jdbc:mysql://localhost:3306/kanchi-wave-hub
           SPRING_DATASOURCE_USERNAME: root
