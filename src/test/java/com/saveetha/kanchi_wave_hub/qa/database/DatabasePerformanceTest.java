@@ -64,14 +64,64 @@ public class DatabasePerformanceTest extends BaseIntegrationTest {
     void testDatabaseIndexes() {
         long start = System.currentTimeMillis();
         try {
-            // Verify that indexes exist on the users table (specifically email)
-            DatabaseMetaData metaData = jdbcTemplate.getDataSource().getConnection().getMetaData();
-            ResultSet rs = metaData.getIndexInfo(null, null, "users", false, false);
             boolean hasEmailIndex = false;
-            while (rs.next()) {
-                String colName = rs.getString("COLUMN_NAME");
-                if ("email".equalsIgnoreCase(colName)) {
-                    hasEmailIndex = true;
+
+            // 1. Try standard JDBC DatabaseMetaData
+            try (java.sql.Connection conn = jdbcTemplate.getDataSource().getConnection()) {
+                DatabaseMetaData metaData = conn.getMetaData();
+                String catalog = conn.getCatalog();
+
+                // Try with current catalog and lowercase table name
+                try (ResultSet rs = metaData.getIndexInfo(catalog, null, "users", false, false)) {
+                    while (rs.next()) {
+                        String colName = rs.getString("COLUMN_NAME");
+                        if ("email".equalsIgnoreCase(colName)) {
+                            hasEmailIndex = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Fallback: try with uppercase table name
+                if (!hasEmailIndex) {
+                    try (ResultSet rs = metaData.getIndexInfo(catalog, null, "USERS", false, false)) {
+                        while (rs.next()) {
+                            String colName = rs.getString("COLUMN_NAME");
+                            if ("email".equalsIgnoreCase(colName)) {
+                                hasEmailIndex = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // Fallback: try with null catalog
+                if (!hasEmailIndex) {
+                    try (ResultSet rs = metaData.getIndexInfo(null, null, "users", false, false)) {
+                        while (rs.next()) {
+                            String colName = rs.getString("COLUMN_NAME");
+                            if ("email".equalsIgnoreCase(colName)) {
+                                hasEmailIndex = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Fallback: Query INFORMATION_SCHEMA if JDBC metadata lookup didn't succeed
+            if (!hasEmailIndex) {
+                try {
+                    String query = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS " +
+                                   "WHERE TABLE_SCHEMA = DATABASE() " +
+                                   "AND (TABLE_NAME = 'users' OR TABLE_NAME = 'USERS') " +
+                                   "AND COLUMN_NAME = 'email'";
+                    Integer count = jdbcTemplate.queryForObject(query, Integer.class);
+                    if (count != null && count > 0) {
+                        hasEmailIndex = true;
+                    }
+                } catch (Exception ex) {
+                    System.err.println("Warning: Fallback check on INFORMATION_SCHEMA failed: " + ex.getMessage());
                 }
             }
 
