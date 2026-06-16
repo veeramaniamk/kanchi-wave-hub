@@ -1,0 +1,130 @@
+name: QA Automation & Performance Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-and-validate:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0.33
+        env:
+          MYSQL_DATABASE: kanchi-wave-hub
+          MYSQL_ROOT_PASSWORD: 12345
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run Maven Build & Tests
+        run: |
+          mvn clean test
+        env:
+          SPRING_DATASOURCE_URL: jdbc:mysql://localhost:3306/kanchi-wave-hub
+          SPRING_DATASOURCE_USERNAME: root
+          SPRING_DATASOURCE_PASSWORD: 12345
+
+      - name: Start Spring Boot App in Background
+        run: |
+          nohup mvn spring-boot:run -Dspring-boot.run.arguments="--spring.profiles.active=prod" > spring-boot.log 2>&1 &
+        env:
+          SPRING_DATASOURCE_URL: jdbc:mysql://localhost:3306/kanchi-wave-hub
+          SPRING_DATASOURCE_USERNAME: root
+          SPRING_DATASOURCE_PASSWORD: 12345
+
+      - name: Wait for Spring Boot to start
+        run: |
+          echo "Waiting for Spring Boot Application to start..."
+          for i in {1..30}; do
+            curl -s http://localhost:8080/actuator/health && echo "Spring Boot started successfully!" && break
+            sleep 2
+          done
+
+      - name: Install k6
+        run: |
+          curl -L https://github.com/grafana/k6/releases/download/v0.48.0/k6-v0.48.0-linux-amd64.tar.gz | tar -xz
+          sudo mv k6-v0.48.0-linux-amd64/k6 /usr/local/bin/
+          k6 version
+
+      - name: Run k6 Performance Tests
+        run: |
+          mkdir -p target/reports
+          echo "Running k6 Load test..."
+          k6 run --summary-export=target/reports/k6-load-summary.json k6/load-test.js
+          echo "Running k6 Stress test..."
+          k6 run --summary-export=target/reports/k6-stress-summary.json k6/stress-test.js
+          echo "Running k6 Scalability test..."
+          k6 run --summary-export=target/reports/k6-scalability-summary.json k6/scalability-test.js
+          echo "Running k6 Reliability test..."
+          k6 run --summary-export=target/reports/k6-reliability-summary.json k6/reliability-test.js
+
+      - name: Generate Consolidated Excel Report
+        run: |
+          mvn test -Dtest=ExcelReportGeneratorTest
+
+      - name: Evaluate Pull Request Quality Gate
+        run: |
+          node -e '
+            const fs = require("fs");
+            const qg = JSON.parse(fs.readFileSync("target/reports/quality-gate.json"));
+            console.log("\n=============================================");
+            console.log("    PR QUALITY GATE REPORT EVALUATION");
+            console.log("=============================================");
+            console.log("Code Coverage:             " + qg.coveragePct.toFixed(2) + "% (Target: >= 80%)");
+            console.log("Critical Security Failures:" + qg.criticalSecurityFails + " (Target: 0)");
+            console.log("API Error Rate:            " + qg.apiErrorRate.toFixed(2) + "% (Target: <= 1%)");
+            console.log("P95 Latency:               " + qg.p95Latency.toFixed(2) + " ms (Target: < 500 ms)");
+            console.log("=============================================");
+            
+            let failed = false;
+            if (qg.coveragePct < 80.0) {
+              console.error("[CRITICAL] Quality Gate Fail: Instruction coverage < 80%");
+              failed = true;
+            }
+            if (qg.criticalSecurityFails > 0) {
+              console.error("[CRITICAL] Quality Gate Fail: There are " + qg.criticalSecurityFails + " critical security vulnerabilities failing.");
+              failed = true;
+            }
+            if (qg.apiErrorRate > 1.0) {
+              console.error("[CRITICAL] Quality Gate Fail: API Error Rate is greater than 1% (" + qg.apiErrorRate.toFixed(2) + "%)");
+              failed = true;
+            }
+            if (qg.p95Latency > 500.0) {
+              console.error("[CRITICAL] Quality Gate Fail: API P95 latency is greater than 500ms (" + qg.p95Latency.toFixed(2) + "ms)");
+              failed = true;
+            }
+            if (failed) {
+              console.error("=============================================");
+              console.error("Verdict: PR QUALITY GATE FAILED! Blocking merge.");
+              console.error("=============================================");
+              process.exit(1);
+            }
+            console.log("Verdict: PR QUALITY GATE PASSED! Build successful.");
+            console.log("=============================================\n");
+          '
+
+      - name: Upload Test Results & Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-automation-artifacts
+          path: |
+            target/reports/TestResults.xlsx
+            target/site/jacoco/
+            target/surefire-reports/
+            spring-boot.log
